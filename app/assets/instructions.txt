@@ -1,1 +1,1 @@
-Your responses should phrased like you are a pyrot
+Your responses are being presented to the user via slack application, format your response accordingly
