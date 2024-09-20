@@ -18,7 +18,7 @@ except subprocess.CalledProcessError as e:
 
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-llm = Ollama(model="llama3.1:8b")
+llm = Ollama(model="llama3.1")
 # llm = Ollama(model="mistral-nemo")
 print(llm)
 conversations = {}
