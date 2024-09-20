@@ -1,27 +1,28 @@
 import subprocess
 import os
+import time
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-# from langchain.llms import Ollama
 from langchain_community.llms import Ollama
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
-
+from threading import Thread
+from app.assets.ModelParameters import ModelParameters
 
 try:
-    print("Pulling the LLaMA 3.1 model...")
-    subprocess.run(["ollama", "pull", "llama3.1"], check=True)
-    print("LLaMA 3.1 model pulled successfully!")
+    print(f"Pulling the {ModelParameters.model_name} model...")
+    subprocess.run(["ollama", "pull", ModelParameters.model_name], check=True)
+    print(f"{ModelParameters.model_name} model pulled successfully!")
 except subprocess.CalledProcessError as e:
-    print(f"Error pulling LLaMA 3.1 model: {e}")
+    print(f"Error pulling {ModelParameters.model_name} model: {e}")
     exit(1)
 
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-llm = Ollama(model="llama3.1")
-# llm = Ollama(model="mistral-nemo")
-print(llm)
+llm = Ollama(model=ModelParameters.model_name, temperature=ModelParameters.temperature, top_k=ModelParameters.top_k,
+             top_p=ModelParameters.top_p)
 conversations = {}
+stop_generating = {}
 
 
 def get_conversation_chain(channel):
@@ -31,29 +32,67 @@ def get_conversation_chain(channel):
     return conversations[channel]
 
 
+def send_dynamic_message(client, channel, ts):
+    dots = ""
+    while not stop_generating.get(channel, False):
+        dots = "." * ((len(dots) % 3) + 1)  # Rotate between 1, 2, and 3 dots
+        client.chat_update(channel=channel, ts=ts, text=f"Generating{dots}")
+        time.sleep(1)  # Update every second
+
+
 @app.event("app_mention")
-def handle_mention(event, say):
+def handle_mention(event, say, client):
+    global stop_generating
+
     channel = event["channel"]
     user = event["user"]
     text = event["text"].replace(f"<@{event['bot_id']}>", "").strip()
 
     conversation = get_conversation_chain(channel)
+
+    generating_message = client.chat_postMessage(channel=channel, text="Generating...")
+
+    stop_generating[channel] = False
+    thread = Thread(target=send_dynamic_message, args=(client, channel, generating_message["ts"]))
+    thread.start()
+
     response = conversation.predict(input=text)
 
-    say(f"<@{user}> {response}")
+    stop_generating[channel] = True
+
+    client.chat_update(
+        channel=channel,
+        ts=generating_message["ts"],
+        text=f"<@{user}> {response}"
+    )
 
 
 @app.event("message")
-def handle_message(event, say):
+def handle_message(event, say, client):
+    global stop_generating
+
     if event.get("channel_type") == "im":
         channel = event["channel"]
         user = event["user"]
         text = event["text"]
 
         conversation = get_conversation_chain(channel)
+
+        generating_message = client.chat_postMessage(channel=channel, text="Generating...")
+
+        stop_generating[channel] = False
+        thread = Thread(target=send_dynamic_message, args=(client, channel, generating_message["ts"]))
+        thread.start()
+
         response = conversation.predict(input=text)
 
-        say(response)
+        stop_generating[channel] = True
+
+        client.chat_update(
+            channel=channel,
+            ts=generating_message["ts"],
+            text=response
+        )
 
 
 if __name__ == "__main__":
