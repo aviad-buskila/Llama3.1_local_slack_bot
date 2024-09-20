@@ -1,6 +1,9 @@
 # Slack LLaMA Bot
 
-A Slack bot that utilizes the LLaMA model to provide insightful responses to user inquiries. This application is built using Python, Slack Bolt, and LangChain, allowing for interactive conversations in Slack channels and direct messages.
+A Slack bot that utilizes the LLaMA model to provide insightful responses to user inquiries. This application is built using Python, Slack Bolt, and LangChain, allowing for interactive conversations in Slack channels and direct messages. Ever hit that annoying usage limit on ChatGPT or ClaudeAI? (We've all been there 🤭)
+Say hello to a game-changer: A Slack bot powered by Meta's Llama3.1, *running right on your local machine, free of charge!* It responds to mentions and handles DMs directly in your Slack workspace, and can be ran on a common macbook pro.
+While this repo includes Llama3.1, you can use any Ollama-supported LLM (like mistral-nemo, etc.).
+
 
 ## Features
 
