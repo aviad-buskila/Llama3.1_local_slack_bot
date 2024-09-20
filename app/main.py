@@ -1,5 +1,4 @@
 import subprocess
-import os
 import time
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -8,6 +7,19 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
 from threading import Thread
 from app.assets.ModelParameters import ModelParameters
+
+
+import os
+
+
+def load_system_context(file_path):
+    with open(file_path, 'r') as file:
+        return file.read().strip()
+
+
+system_context_path = os.path.join('assets', 'instructions.txt')
+
+system_context = load_system_context(system_context_path)
 
 try:
     print(f"Pulling the {ModelParameters.model_name} model...")
@@ -25,19 +37,23 @@ conversations = {}
 stop_generating = {}
 
 
-def get_conversation_chain(channel):
+def get_conversation_chain(channel, system_context):
     if channel not in conversations:
         memory = ConversationBufferMemory()
-        conversations[channel] = ConversationChain(llm=llm, memory=memory)
+        chain = ConversationChain(llm=llm, memory=memory)
+
+        chain.predict(input=system_context)
+
+        conversations[channel] = chain
     return conversations[channel]
 
 
 def send_dynamic_message(client, channel, ts):
     dots = ""
     while not stop_generating.get(channel, False):
-        dots = "." * ((len(dots) % 3) + 1)  # Rotate between 1, 2, and 3 dots
+        dots = "." * ((len(dots) % 3) + 1)
         client.chat_update(channel=channel, ts=ts, text=f"Generating{dots}")
-        time.sleep(1)  # Update every second
+        time.sleep(1)
 
 
 @app.event("app_mention")
@@ -48,7 +64,7 @@ def handle_mention(event, say, client):
     user = event["user"]
     text = event["text"].replace(f"<@{event['bot_id']}>", "").strip()
 
-    conversation = get_conversation_chain(channel)
+    conversation = get_conversation_chain(channel, system_context)  # Pass the system_context
 
     generating_message = client.chat_postMessage(channel=channel, text="Generating...")
 
@@ -76,7 +92,7 @@ def handle_message(event, say, client):
         user = event["user"]
         text = event["text"]
 
-        conversation = get_conversation_chain(channel)
+        conversation = get_conversation_chain(channel, system_context)  # Pass the system_context
 
         generating_message = client.chat_postMessage(channel=channel, text="Generating...")
 
